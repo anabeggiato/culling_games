@@ -10,9 +10,7 @@ include_directories(
 )
 
 add_executable(maze_solver_node
-    src/maze_solver_node_main.cpp
     src/maze_solver_node.cpp
-    src/astar.cpp
 )
 
 ament_target_dependencies(maze_solver_node
