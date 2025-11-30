@@ -10,7 +10,7 @@
 
 using namespace std::chrono_literals;
 
-int GetMap()
+std::shared_ptr<cg_interfaces::srv::GetMap::Response> GetMap()
 {
     // criação de um nó ROS chamado "get_map_client" e retorna um ponteiro compartilhado armazenado na variavel node
     auto node = rclcpp::Node::make_shared("get_map_client");
@@ -44,23 +44,58 @@ int GetMap()
     // Wait for the result.
     if (rclcpp::spin_until_future_complete(node, result) == rclcpp::FutureReturnCode::SUCCESS)
     {
-        // log de sucesso mostrando a largura retornada pelo servidor
-        RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "First item: %s", result.get()->occupancy_grid_flattened[0].c_str());
+        // log de sucesso mostrando o primeiro item do mapa retornado pelo servidor
+        RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Mapa recebido com sucesso");
+        return result.get();
     }
     else
     {
         // log em casod e erro
         RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Failed to call service get_map");
-        return 1;
+        return nullptr;
     }
-        return 0;
+}
+
+void BuildMap(const std::shared_ptr<cg_interfaces::srv::GetMap::Response> map_infos)
+{
+    //define a quantidade de linhas e colunas da matriz de acordo com o recebido do getmap
+    int linhas = map_infos->occupancy_grid_shape[0];
+    int colunas = map_infos->occupancy_grid_shape[1];
+
+    //cria uma matriz de strings com tamanho linhasxcolunas previamente preenchida com 'x'
+    std::vector<std::vector<std::string>> map(linhas, std::vector<std::string>(colunas, "x"));
+
+    // pega a string do mapa e adicona em uma variável (pra não ter que usar map_infos->occupancy_grid_flattened toda vez)
+    const auto &flattened = map_infos->occupancy_grid_flattened;
+
+    //percorre a string do mapa e vai adionando cada caractere do mapa em seu respectivo lugar da matriz
+    for (int i = 0; i < (linhas); i++) {
+        for (int j=0; j<colunas; j++) {
+            int index = i * colunas + j;
+            map[i][j] = flattened[index];
+        }
+    }
+
+    //PRINT MAP
+        for (int i = 0; i < (linhas); i++) {
+        for (int j=0; j<colunas; j++) {
+            std::cout << map[i][j] << "  ";
+        }
+        std::cout << std::endl;
+    }
 }
 
 int main(int argc, char **argv)
 {
     // inicializa o sistema ros
     rclcpp::init(argc, argv);
-    GetMap();
+
+    // recebe a string do mapa, armazena em uma variavel e chama a função de transformar em uma matriz
+    auto mapa = GetMap();
+    BuildMap(mapa);
+
+    //encerra o ros
     rclcpp::shutdown();
+
     return 0;
 }
