@@ -2,6 +2,7 @@
 #include "rclcpp/rclcpp.hpp"
 // incluclusão da biblioteca de servidor
 #include "cg_interfaces/srv/get_map.hpp"
+#include "cg_interfaces/srv/move_cmd.hpp"
 
 // ouras dependencias encessárias
 #include <chrono>
@@ -9,9 +10,11 @@
 #include <memory>
 #include <iostream>
 #include <queue>
+#include <thread>
 
 using namespace std::chrono_literals;
 
+// FUNÇÃO GETMAP
 std::shared_ptr<cg_interfaces::srv::GetMap::Response> GetMap()
 {
     // criação de um nó ROS chamado "get_map_client" e retorna um ponteiro compartilhado armazenado na variavel node
@@ -58,6 +61,7 @@ std::shared_ptr<cg_interfaces::srv::GetMap::Response> GetMap()
     }
 }
 
+// FUNÇÃO BUILD MAP
 std::vector<std::vector<std::string>> BuildMap(const std::shared_ptr<cg_interfaces::srv::GetMap::Response> map_infos)
 {
     // define a quantidade de linhas e colunas da matriz de acordo com o recebido do getmap
@@ -81,19 +85,20 @@ std::vector<std::vector<std::string>> BuildMap(const std::shared_ptr<cg_interfac
     }
 
     // PRINT MAP
-    for (int i = 0; i < (linhas); i++)
-    {
-        for (int j = 0; j < colunas; j++)
-        {
-            std::cout << map[i][j] << "  ";
-        }
-        std::cout << std::endl;
-    }
+    // for (int i = 0; i < (linhas); i++)
+    // {
+    //     for (int j = 0; j < colunas; j++)
+    //     {
+    //         std::cout << map[i][j] << "  ";
+    //     }
+    //     std::cout << std::endl;
+    // }
 
     return map;
 }
 
-void Bfs(std::vector<std::vector<std::string>> &map, int &linhas, int &colunas)
+// ALGORITMO PARA PERCORRER O MAPA
+std::vector<std::pair<int, int>> Bfs(std::vector<std::vector<std::string>> &map, int &linhas, int &colunas)
 {
     // encontrar a posição do robo e do target
     int robot_x, robot_y, target_x, target_y;
@@ -136,6 +141,9 @@ void Bfs(std::vector<std::vector<std::string>> &map, int &linhas, int &colunas)
     std::cout << "Posição do target: " << target_x << ", " << target_y << std::endl;
 
     std::cout << "Inicializando BFS... " << std::endl;
+    int dx[] = {-1, 1, 0, 0};
+    int dy[] = {0, 0, -1, 1};
+
     // enquanto a fila estiver vazia
     while (!a_visitar.empty())
     {
@@ -153,89 +161,35 @@ void Bfs(std::vector<std::vector<std::string>> &map, int &linhas, int &colunas)
         // não sendo o target, verificar os vizinhos
         // caso o vizinho ainda n tenha sido visitado e não esteja bloqueado, marcar como visitado, registrar o pai (posição atual) e enfileirar
 
-        // ---- VIZINHO DE CIMA ----
-        int nx = posicao_atual.first - 1;
-        int ny = posicao_atual.second;
-
-        if (nx >= 0)
+        for (int i = 0; i < 4; i++)
         {
-            if (map[nx][ny] != "b")
+            int nx = posicao_atual.first + dx[i];
+            int ny = posicao_atual.second + dy[i];
+
+            // 1. Verificar se está dentro dos limites do mapa
+            if (nx >= 0 && nx < linhas && ny >= 0 && ny < colunas)
             {
-                auto vizinho = std::make_pair(nx, ny);
-
-                if (find(visitados.begin(), visitados.end(), vizinho) == visitados.end())
+                // 2. Verificar se não é bloqueio ('b')
+                if (map[nx][ny] != "b")
                 {
-                    pai[nx][ny] = posicao_atual;
-                    visitados.push_back(vizinho);
-                    a_visitar.push(vizinho);
-                }
-            }
-        }
+                    auto vizinho = std::make_pair(nx, ny);
 
-        // ---- VIZINHO DE BAIXO ----
-        nx = posicao_atual.first + 1;
-        ny = posicao_atual.second;
-
-        if (nx < map.size())
-        {
-            if (map[nx][ny] != "b")
-            {
-                auto vizinho = std::make_pair(nx, ny);
-
-                if (find(visitados.begin(), visitados.end(), vizinho) == visitados.end())
-                {
-                    pai[nx][ny] = posicao_atual;
-                    visitados.push_back(vizinho);
-                    a_visitar.push(vizinho);
-                }
-            }
-        }
-
-        // ---- VIZINHO DA ESQUERDA ----
-        nx = posicao_atual.first;
-        ny = posicao_atual.second - 1;
-
-        if (ny >= 0)
-        {
-            if (map[nx][ny] != "b")
-            {
-                auto vizinho = std::make_pair(nx, ny);
-
-                if (find(visitados.begin(), visitados.end(), vizinho) == visitados.end())
-                {
-                    pai[nx][ny] = posicao_atual;
-                    visitados.push_back(vizinho);
-                    a_visitar.push(vizinho);
-                }
-            }
-        }
-
-        // ---- VIZINHO DA DIREITA ----
-        nx = posicao_atual.first;
-        ny = posicao_atual.second + 1;
-
-        if (ny < map[0].size())
-        {
-            if (map[nx][ny] != "b")
-            {
-                auto vizinho = std::make_pair(nx, ny);
-
-                if (find(visitados.begin(), visitados.end(), vizinho) == visitados.end())
-                {
-                    pai[nx][ny] = posicao_atual;
-                    visitados.push_back(vizinho);
-                    a_visitar.push(vizinho);
+                    // 3. Verificar se já foi visitado (mantendo sua lógica original com std::find)
+                    if (find(visitados.begin(), visitados.end(), vizinho) == visitados.end())
+                    {
+                        pai[nx][ny] = posicao_atual;
+                        visitados.push_back(vizinho);
+                        a_visitar.push(vizinho);
+                    }
                 }
             }
         }
     }
 
     // reconstruir o caminho usando a tabela de pais (percorrendo pais partindo do target e indo até o robô)
-
     if (pai[target_x][target_y].first == -1)
     {
         std::cout << "Nenhum caminho encontrado." << std::endl;
-        return;
     }
 
     std::vector<std::pair<int, int>> caminho;
@@ -257,11 +211,86 @@ void Bfs(std::vector<std::vector<std::string>> &map, int &linhas, int &colunas)
     std::reverse(caminho.begin(), caminho.end());
 
     // mostrar o caminho encontrado
-    std::cout << "Caminho encontrado:" << std::endl;
-    for (auto &p : caminho)
+    // std::cout << "Caminho encontrado:" << std::endl;
+    // for (auto &p : caminho)
+    // {
+    //     std::cout << "(" << p.first << ", " << p.second << ")" << std::endl;
+    // }
+
+    return caminho;
+}
+
+//ALGORITMO PARA O ROBO SEGUIR O CAMINHO ENCONTRADO
+void ExecutePath(std::vector<std::pair<int, int>> &caminho)
+{
+    // 1. Criação do nó e do cliente (Idêntico ao seu exemplo)
+    auto node = rclcpp::Node::make_shared("move_client_node");
+    
+    // Supondo que o nome do serviço seja "move_command" (ajuste se for diferente no seu launch file)
+    rclcpp::Client<cg_interfaces::srv::MoveCmd>::SharedPtr client =
+        node->create_client<cg_interfaces::srv::MoveCmd>("move_command");
+
+    // 2. Loop de espera pelo serviço (Idêntico ao seu exemplo)
+    while (!client->wait_for_service(1s))
     {
-        std::cout << "(" << p.first << ", " << p.second << ")" << std::endl;
+        if (!rclcpp::ok())
+        {
+            RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Interrompido enquanto aguardava o serviço. Saindo.");
+            return;
+        }
+        RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Serviço MoveCmd indisponível, aguardando...");
     }
+
+    // 3. Iterar sobre o caminho para enviar comandos passo a passo
+    // O loop vai até size() - 1 porque comparamos o atual com o próximo
+    for (size_t i = 0; i < caminho.size() - 1; ++i)
+    {
+        std::pair<int, int> atual = caminho[i];
+        std::pair<int, int> proximo = caminho[i + 1];
+        std::string direcao;
+
+        // Determinar a string de direção baseada na diferença de coordenadas
+        if (proximo.first < atual.first)       direcao = "up";
+        else if (proximo.first > atual.first)  direcao = "down";
+        else if (proximo.second < atual.second) direcao = "left";
+        else if (proximo.second > atual.second) direcao = "right";
+
+        // Cria a requisição (Idêntico ao seu exemplo, mas dentro do loop)
+        auto request = std::make_shared<cg_interfaces::srv::MoveCmd::Request>();
+        request->direction = direcao;
+
+        RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Movendo para: %s", direcao.c_str());
+
+        // Envia a requisição assíncrona
+        auto result_future = client->async_send_request(request);
+
+        // Espera pela resposta DESTE passo específico
+        if (rclcpp::spin_until_future_complete(node, result_future) == rclcpp::FutureReturnCode::SUCCESS)
+        {
+            auto response = result_future.get();
+            
+            // Verifica se o movimento foi bem sucedido (campo 'success' da resposta)
+            if (response->success)
+            {
+                // Podemos acessar robot_pos ou target_pos se necessário
+                // response->robot_pos
+                RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Movimento executado com sucesso.");
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            }
+            else
+            {
+                RCLCPP_WARN(rclcpp::get_logger("rclcpp"), "Falha ao mover o robô! Bloqueio encontrado?");
+                break; // Para a execução se o robô falhar em mover
+            }
+        }
+        else
+        {
+            RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Falha ao chamar o serviço MoveCmd");
+            break;
+        }
+    }
+    
+    RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Execução do caminho finalizada.");
 }
 
 int main(int argc, char **argv)
@@ -276,7 +305,8 @@ int main(int argc, char **argv)
     // roda o algoritmo
     int linhas = 29;
     int colunas = 29;
-    Bfs(map, linhas, colunas);
+    auto caminho = Bfs(map, linhas, colunas);
+    ExecutePath(caminho);
 
     // encerra o ros
     rclcpp::shutdown();
