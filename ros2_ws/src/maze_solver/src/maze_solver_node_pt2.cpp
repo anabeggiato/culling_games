@@ -233,9 +233,6 @@ int main(int argc, char **argv)
         std::reverse(caminho.begin(), caminho.end());
 
         RCLCPP_INFO(node->get_logger(), "Caminho Otimizado Encontrado com %lu passos!", caminho.size());
-        
-        // Aqui você poderia chamar MoveRobot seguindo esse vetor 'caminho' 
-        // para executar a rota final mais rápida.
     }
 
     rclcpp::shutdown();
